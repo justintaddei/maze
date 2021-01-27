@@ -1,0 +1,354 @@
+<html>
+
+<head>
+	<title>Maze</title>
+	<script src="maze.js"></script>
+	<style type="text/css">
+		#maze {
+			border-collapse: collapse;
+			-webkit-user-select: none;
+			-moz-user-select: none;
+			-ms-user-select: none;
+			-o-user-select: none;
+			user-select: none;
+		}
+		
+		#maze td {
+			font-size: 0px;
+			-webkit-box-sizing: border-box;
+			-moz-box-sizing: border-box;
+			-ms-box-sizing: border-box;
+			-o-box-sizing: border-box;
+			box-sizing: border-box;
+		}
+		
+		#canvas {
+			outline: 4px solid #000;
+			background-color: #fff;
+		}
+		
+		.square {
+			font-size: 60px;
+			text-align: center;
+			width: 1000px;
+		}
+		
+		#maze {
+			position: fixed;
+			top: 136px;
+		}
+	</style>
+</head>
+
+<body>
+	<p class="square">THE MAZE - 0.1 ALPHA</p>
+	<canvas id="canvas" height="500" width="1000"></canvas>
+	<table id="maze">
+		<tbody id="mazebase"></tbody>
+	</table>
+
+	<script>
+		var canvas = document.getElementById('canvas');
+		var ctx = canvas.getContext('2d');
+
+		function _(id) {
+			return document.getElementById(id);
+		}
+		var maze,
+			mazeWidth,
+			mazeHeight,
+			mazeCellSize;
+
+		function loadMaze(width) {
+			mazeWidth = width;
+			mazeHeight = mazeWidth / 2;
+			mazeCellSize = 1000 / mazeWidth;
+			/*global newMaze*/
+			maze = newMaze(mazeWidth, mazeHeight); // Y, X
+			for (var i = 0; i < maze.length; i++) {
+				_('mazebase').innerHTML += '<tr id="r' + i + '">';
+				for (var j = 0; j < maze[i].length; j++) {
+					var selector = i + "-" + j;
+					_('r' + i).innerHTML += "<td width='" + mazeCellSize + "' height='" + mazeCellSize + "' id='" + selector + "'>&nbsp;</td>";
+					if (maze[i][j][0] == 0) {
+						_(selector).style.borderTop = "2px solid #000";
+					}
+					if (maze[i][j][1] == 0) {
+						_(selector).style.borderRight = "2px solid #000";
+					}
+					if (maze[i][j][2] == 0) {
+						_(selector).style.borderBottom = "2px solid #000";
+					}
+					if (maze[i][j][3] == 0) {
+						_(selector).style.borderLeft = "2px solid #000";
+					}
+				}
+				_('mazebase').innerHTML += '</tr>';
+			}
+		}
+
+
+
+
+
+		// The Player
+		var player = {};
+		player.height = 0;
+		player.width = player.height;
+		player.x = 0;
+		player.xw = player.x + player.width;
+		player.y = 0;
+		player.yh = player.y + player.height;
+		player.direction = {
+			vertical: 0,
+			horizontal: 0
+		};
+		player.speed = 1;
+		player.currentCells = {
+			x: 0,
+			y: 0,
+			nx: 0,
+			ny: 0
+		};
+		player.prev = {
+			x: 0,
+			y: 0,
+			nx: 0,
+			ny: 0
+		};
+		player.won = false;
+
+
+
+
+		// Detect the edge of the canvas.
+		function isEdge() {
+			var edges = {
+				x: false,
+				y: false,
+				nx: false,
+				ny: false
+			};
+			if (player.direction.vertical == 0) {
+				edges.ny = player.y <= 0;
+			}
+			if (player.direction.vertical == 1) {
+				edges.y = player.yh >= canvas.height;
+			}
+			if (player.direction.horizontal == 0) {
+				edges.nx = player.x <= 0;
+			}
+			if (player.direction.horizontal == 1) {
+				edges.x = player.xw >= canvas.width;
+			}
+			return edges;
+		}
+
+
+
+		function isWall() {
+			var walls = {
+				x: false,
+				y: false,
+				nx: false,
+				ny: false
+			};
+			// Up
+			if (maze[player.currentCells.y][player.currentCells.nx][0] == 0 && player.currentCells.ny < player.prev.ny) {
+				if (player.prev.nx == player.currentCells.nx) {
+					walls.ny = true;
+				}
+			}
+			if (maze[player.currentCells.y][player.currentCells.x][0] == 0 && player.currentCells.ny < player.prev.ny) {
+				if (player.prev.x == player.currentCells.x) {
+					walls.ny = true;
+				}
+			}
+
+			// Right
+			if (maze[player.currentCells.ny][player.currentCells.nx][1] == 0 && player.currentCells.x > player.prev.x) {
+				if (player.prev.ny == player.currentCells.ny) {
+					walls.x = true;
+				}
+			}
+			if (maze[player.currentCells.y][player.currentCells.nx][1] == 0 && player.currentCells.x > player.prev.x) {
+				if (player.prev.y == player.currentCells.y) {
+					walls.x = true;
+				}
+			}
+
+			// Down
+			if (maze[player.currentCells.ny][player.currentCells.nx][2] == 0 && player.currentCells.y > player.prev.y) {
+				if (player.prev.nx == player.currentCells.nx) {
+					walls.y = true;
+				}
+			}
+			if (maze[player.currentCells.ny][player.currentCells.x][2] == 0 && player.currentCells.y > player.prev.y) {
+				if (player.prev.x == player.currentCells.x) {
+					walls.y = true;
+				}
+			}
+
+			// Left
+			if (maze[player.currentCells.ny][player.currentCells.x][3] == 0 && player.currentCells.nx < player.prev.nx) {
+				if (player.prev.ny == player.currentCells.ny) {
+					walls.nx = true;
+				}
+			}
+			if (maze[player.currentCells.y][player.currentCells.x][3] == 0 && player.currentCells.nx < player.prev.nx) {
+				if (player.prev.y == player.currentCells.y) {
+					walls.nx = true;
+				}
+			}
+
+
+			if (!walls.x) {
+				player.prev.x = player.currentCells.x;
+			}
+			if (!walls.y) {
+				player.prev.y = player.currentCells.y;
+			}
+			if (!walls.nx) {
+				player.prev.nx = player.currentCells.nx;
+			}
+			if (!walls.ny) {
+				player.prev.ny = player.currentCells.ny;
+			}
+			console.log(player.prev);
+			console.log(player.currentCells);
+			return walls;
+		}
+
+		function trackCell() { // What cell is the player in? <-- Needs Work...
+			var nx = Math.floor(player.x / mazeCellSize);
+			var ny = Math.floor(player.y / mazeCellSize);
+			var x = Math.min(Math.floor(player.xw / mazeCellSize), mazeWidth - 1);
+			var y = Math.min(Math.floor(player.yh / mazeCellSize), mazeHeight - 1);
+
+			player.currentCells.nx = nx;
+			player.currentCells.ny = ny;
+			player.currentCells.x = x;
+			player.currentCells.y = y;
+
+		}
+
+		function move() {
+
+			canvas.width = canvas.width;
+
+			ctx.beginPath();
+			ctx.arc(canvas.width - (mazeCellSize / 2), canvas.height - (mazeCellSize / 2), (mazeCellSize / 2), 0, 2 * Math.PI);
+			ctx.fillStyle = '#0f0';
+			ctx.fill();
+			ctx.closePath();
+
+			ctx.beginPath();
+			ctx.arc(player.x + (player.width / 2), player.y + (player.height / 2), player.width / 2, 0, 2 * Math.PI);
+			ctx.fillStyle = '#0bf';
+			ctx.fill();
+			ctx.closePath();
+
+			if (!player.won) {
+				if (player.x + (player.width / 2) >= canvas.width - (mazeCellSize / 2)) {
+					if (player.y + (player.height / 2) >= canvas.height - (mazeCellSize / 2)) {
+						player.won = true;
+						document.body.innerHTML = '<h1 style="font-size:100px;">You Won!</h1>';
+						setTimeout(function() {
+							document.location = document.URL;
+
+						}, 1000)
+					}
+				}
+			}
+		}
+
+
+
+		//Use an array to store key values so you can check if more then one key is being pressed.
+		var keys = [];
+
+
+		//Which key(s) are being pressed?
+		function handleKeys() {
+			player.xw = player.x + player.width;
+			player.yh = player.y + player.height;
+
+			trackCell();
+
+			if (keys[39]) { // Right
+
+				player.direction.horizontal = 1;
+
+				if (!isEdge().x && !isWall().x) {
+					player.x += player.speed;
+				}
+
+			}
+
+			if (keys[37]) { // Left
+
+				player.direction.horizontal = 0;
+
+				if (!isEdge().nx && !isWall().nx) {
+					player.x -= player.speed;
+				}
+
+			}
+
+			if (keys[38]) { // Up
+
+				player.direction.vertical = 0;
+
+				if (!isEdge().ny && !isWall().ny) {
+					player.y -= player.speed;
+				}
+
+			}
+
+			if (keys[40]) { // Down
+
+				player.direction.vertical = 1;
+
+				if (!isEdge().y && !isWall().y) {
+					player.y += player.speed;
+				}
+
+			}
+
+			move();
+
+			window.setTimeout(handleKeys, 1);
+		}
+
+		//Mark a key as being pressed.
+		window.addEventListener('keydown', function(e) {
+			e = e || event; //Support for IE.
+			var charCode = (e.which) ? e.which : e.keyCode; //Support for IE.
+			keys[charCode] = e.type == "keydown"; //Evaluates to true or false.
+		});
+
+		//Mark a key as not being pressed
+		window.addEventListener('keyup', function(e) {
+			e = e || event; //Support for IE.
+			var charCode = (e.which) ? e.which : e.keyCode; //Support for IE.
+			keys[charCode] = false;
+		});
+
+		function startGame(num) {
+			loadMaze(num);
+			player.height = mazeCellSize * 0.5;
+			player.width = player.height;
+			handleKeys();
+		}// Get to the green dot to win.
+		if (Math.random() > 0.5) {
+			startGame(20);// Only numbers thet divide evenly into 1000 and 500 and are >= 10 - 10, 20, 50, 100   BUT NOT TO BIG OR THE BROWSER WILL... CHRASH!!!!!!!!
+		}else {
+			startGame(50);
+		}
+	</script>
+
+
+
+</body>
+
+</html>
